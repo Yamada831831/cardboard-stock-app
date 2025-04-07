@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>段ボール種類登録</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Bootstrap CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+  <div class="container mt-4">
+    <h2 class="mb-4">📦 段ボール種類 登録画面</h2>
+
+    <!-- 入力フォーム -->
+    <div class="card p-3 mb-4">
+      <input type="hidden" id="cardboard-id">
+      <div class="mb-2">
+        <label>名称</label>
+        <input type="text" class="form-control" id="cardboard-name">
+      </div>
+      <div class="mb-2">
+        <label>サイズ</label>
+        <input type="text" class="form-control" id="cardboard-size">
+      </div>
+      <div class="mb-2">
+        <label>備考</label>
+        <input type="text" class="form-control" id="cardboard-notes">
+      </div>
+      <button class="btn btn-primary w-100" onclick="submitForm()">💾 登録 / 更新</button>
+    </div>
+
+    <!-- 一覧表示 -->
+    <h5>登録済みの種類</h5>
+    <ul class="list-group" id="cardboard-list"></ul>
+  </div>
+
+  <script>
+    // 初期表示
+    window.onload = loadCardboards;
+
+    function loadCardboards() {
+      fetch("/api/cardboard-types")
+        .then(res => res.json())
+        .then(data => {
+          const list = document.getElementById("cardboard-list");
+          list.innerHTML = "";
+          data.forEach(item => {
+            const li = document.createElement("li");
+            li.className = "list-group-item d-flex justify-content-between align-items-start flex-column flex-sm-row";
+            li.innerHTML = `
+              <div class="mb-2 mb-sm-0">
+                <strong>${item.name}</strong><br>
+                サイズ: ${item.size || "-"} / 備考: ${item.notes || "-"}
+              </div>
+              <div class="btn-group">
+                <button class="btn btn-sm btn-outline-success" onclick='editItem(${JSON.stringify(item)})'>編集</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${item.id})">削除</button>
+              </div>
+            `;
+            list.appendChild(li);
+          });
+        });
+    }
+
+    function submitForm() {
+      const id = document.getElementById("cardboard-id").value;
+      const name = document.getElementById("cardboard-name").value;
+      const size = document.getElementById("cardboard-size").value;
+      const notes = document.getElementById("cardboard-notes").value;
+
+      fetch("/api/cardboard-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: id || null, name, size, notes })
+      }).then(() => {
+        resetForm();
+        loadCardboards();
+      });
+    }
+
+    function editItem(item) {
+      document.getElementById("cardboard-id").value = item.id;
+      document.getElementById("cardboard-name").value = item.name;
+      document.getElementById("cardboard-size").value = item.size;
+      document.getElementById("cardboard-notes").value = item.notes;
+    }
+
+    function deleteItem(id) {
+      if (!confirm("削除してもよろしいですか？")) return;
+      fetch(`/api/cardboard-types/${id}`, {
+        method: "DELETE"
+      }).then(() => loadCardboards());
+    }
+
+    function resetForm() {
+      document.getElementById("cardboard-id").value = "";
+      document.getElementById("cardboard-name").value = "";
+      document.getElementById("cardboard-size").value = "";
+      document.getElementById("cardboard-notes").value = "";
+    }
+  </script>
+</body>
+</html>
