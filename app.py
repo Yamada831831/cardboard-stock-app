@@ -28,6 +28,11 @@ def get_stocks():
         })
     return jsonify(result)
 
+@app.route("/ping")
+def ping():
+    return "pong", 200
+
+
 @app.route("/stocks", methods=["POST"])
 def add_stock():
     data = request.json
