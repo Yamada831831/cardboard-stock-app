@@ -8,6 +8,11 @@ app = Flask(__name__)
 def ping():
     return "pong", 200
 
+@app.route("/")
+def index():
+    return "Hello from Flask on Render!"
+
+
 @app.route("/stocks", methods=["GET"])
 def get_stocks():
     conn = get_db_connection()
