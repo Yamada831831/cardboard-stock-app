@@ -73,6 +73,9 @@
   function adjustStock(id, amount) {
     if (amount === 0) return;
 
+const action = amount < 0 ? "使用" : "戻し";
+if (!confirm(`この段ボールを${action}しますか？`)) return;
+
     const operator = getOperator();
 
     // Flask側の在庫調整
