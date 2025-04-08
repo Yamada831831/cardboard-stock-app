@@ -26,63 +26,73 @@
   <script>
     window.onload = loadStocks;
 
-    function loadStocks() {
-      fetch("/api/stocks")
-        .then(res => res.json())
-        .then(data => {
-          const list = document.getElementById("stock-list");
-          list.innerHTML = "";
-          data.forEach(item => {
-            const li = document.createElement("li");
-            li.className = "list-group-item";
+     // ユーザー識別子の保存（初回だけ生成）
+  if (!localStorage.getItem("operator")) {
+    const randomId = "user-" + Math.random().toString(36).substring(2, 10);
+    localStorage.setItem("operator", randomId);
+  }
 
-            li.innerHTML = `
-  <div class="d-flex justify-content-between flex-column flex-md-row align-items-start align-items-md-center gap-2">
-    <div>
-      <strong>${item.name}</strong>（${item.size || "-" }）<br>
-      <span>在庫: <strong>${item.quantity}</strong></span><br>
-      <small class="text-muted">${item.notes || ""}</small>  <!-- ← ここをnotesに修正！ -->
-    </div>
-    <div class="d-flex flex-column flex-sm-row gap-2">
-      <input type="number" class="form-control" style="max-width: 100px;" id="input-${item.stock_id}" placeholder="数量">
-      <button class="btn btn-sm btn-outline-danger" onclick="adjustStock(${item.stock_id}, -1 * getQty(${item.stock_id}))">使用（−）</button>
-      <button class="btn btn-sm btn-outline-success" onclick="adjustStock(${item.stock_id}, getQty(${item.stock_id}))">戻し（＋）</button>
-    </div>
-  </div>
-`;
-            list.appendChild(li);
-          });
+  function getOperator() {
+    return localStorage.getItem("operator");
+  }
+
+  function loadStocks() {
+    fetch("/api/stocks")
+      .then(res => res.json())
+      .then(data => {
+        const list = document.getElementById("stock-list");
+        list.innerHTML = "";
+        data.forEach(item => {
+          const li = document.createElement("li");
+          li.className = "list-group-item";
+
+          li.innerHTML = `
+            <div class="d-flex justify-content-between flex-column flex-md-row align-items-start align-items-md-center gap-2">
+              <div>
+                <strong>${item.name}</strong>（${item.size || "-" }）<br>
+                <span>在庫: <strong>${item.quantity}</strong></span><br>
+                <small class="text-muted">${item.notes || ""}</small>
+              </div>
+              <div class="d-flex flex-column flex-sm-row gap-2">
+                <input type="number" class="form-control" style="max-width: 100px;" id="input-${item.stock_id}" placeholder="数量">
+                <button class="btn btn-sm btn-outline-danger" onclick="adjustStock(${item.stock_id}, -1 * getQty(${item.stock_id}))">使用（−）</button>
+                <button class="btn btn-sm btn-outline-success" onclick="adjustStock(${item.stock_id}, getQty(${item.stock_id}))">戻し（＋）</button>
+              </div>
+            </div>
+          `;
+          list.appendChild(li);
         });
-    }
+      });
+  }
 
-    function getQty(id) {
-      const val = document.getElementById(`input-${id}`).value;
-      return parseInt(val || "0", 10);
-    }
+  function getQty(id) {
+    const val = document.getElementById(`input-${id}`).value;
+    return parseInt(val || "0", 10);
+  }
 
-    function adjustStock(id, amount) {
-  if (amount === 0) return;
+  function adjustStock(id, amount) {
+    if (amount === 0) return;
 
-  const value = { amount };
+    const operator = getOperator();
 
-  // Flask側の在庫調整
-  fetch(`/api/stocks/${id}/adjust`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(value)
-  }).then(() => loadStocks());
+    // Flask側の在庫調整
+    fetch(`/api/stocks/${id}/adjust`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount, operator })
+    }).then(() => loadStocks());
 
-  // n8n Webhook（操作ログ送信）
-  fetch("https://n8n-service-6hsw.onrender.com/webhook/operation_logs", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      stock_id: id,
-      amount: amount,
-      operator: "system"  // 後でユーザー名に変えてもOK！
-    })
-  });
-}
+    // n8n Webhook（操作ログ送信）
+    fetch("https://n8n-service-6hsw.onrender.com/webhook/operation_logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        stock_id: id,
+        amount: amount,
+        operator: operator
+      })
+    });
+  }
 
   </script>
 </body>
