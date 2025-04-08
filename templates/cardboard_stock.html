@@ -22,70 +22,38 @@
     <!-- 在庫リスト -->
     <ul class="list-group" id="stock-list"></ul>
   </div>
-<!-- シーズンオフ欄 -->
-<div class="mt-5">
-  <h4 class="mb-3">🌱 シーズンオフの段ボール</h4>
-  <ul class="list-group" id="season-off-list"></ul>
-</div>
 
   <script>
     window.onload = loadStocks;
 
-function loadStocks() {
-  fetch("/api/stocks")
-    .then(res => res.json())
-    .then(data => {
-      const list = document.getElementById("stock-list");
-      const offList = document.getElementById("season-off-list");
-      list.innerHTML = "";
-      offList.innerHTML = "";
+    function loadStocks() {
+      fetch("/api/stocks")
+        .then(res => res.json())
+        .then(data => {
+          const list = document.getElementById("stock-list");
+          list.innerHTML = "";
+          data.forEach(item => {
+            const li = document.createElement("li");
+            li.className = "list-group-item";
 
-      data.forEach(item => {
-        const li = document.createElement("li");
-        li.className = "list-group-item";
-
-        const info = `
-          <strong>${item.name}</strong>（${item.size || "-"}）<br>
-          <span>在庫: <strong>${item.quantity}</strong></span><br>
-          <small class="text-muted">${item.comment || ""}</small>
-        `;
-
-        const controls = item.season_off
-          ? `
-            <button class="btn btn-sm btn-outline-primary" onclick="toggleSeasonOff(${item.stock_id}, false)">復帰</button>
-          `
-          : `
-            <input type="number" class="form-control" style="max-width: 100px;" id="input-${item.stock_id}" placeholder="数量">
-            <button class="btn btn-sm btn-outline-danger" onclick="adjustStock(${item.stock_id}, -1 * getQty(${item.stock_id}))">使用（−）</button>
-            <button class="btn btn-sm btn-outline-success" onclick="adjustStock(${item.stock_id}, getQty(${item.stock_id}))">戻し（＋）</button>
-            <button class="btn btn-sm btn-outline-secondary" onclick="toggleSeasonOff(${item.stock_id}, true)">シーズンオフ</button>
-          `;
-
-        li.innerHTML = `
-          <div class="d-flex justify-content-between flex-column flex-md-row align-items-start align-items-md-center gap-2">
-            <div>${info}</div>
-            <div class="d-flex flex-column flex-sm-row gap-2">
-              ${controls}
-            </div>
-          </div>
-        `;
-
-        if (item.season_off) {
-          offList.appendChild(li);
-        } else {
-          list.appendChild(li);
-        }
-      });
-    });
-}
-
-function toggleSeasonOff(id, setOff) {
-  fetch(`/api/stocks/${id}/season-off`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ season_off: setOff })
-  }).then(() => loadStocks());
-}
+            li.innerHTML = `
+  <div class="d-flex justify-content-between flex-column flex-md-row align-items-start align-items-md-center gap-2">
+    <div>
+      <strong>${item.name}</strong>（${item.size || "-" }）<br>
+      <span>在庫: <strong>${item.quantity}</strong></span><br>
+      <small class="text-muted">${item.notes || ""}</small>  <!-- ← ここをnotesに修正！ -->
+    </div>
+    <div class="d-flex flex-column flex-sm-row gap-2">
+      <input type="number" class="form-control" style="max-width: 100px;" id="input-${item.stock_id}" placeholder="数量">
+      <button class="btn btn-sm btn-outline-danger" onclick="adjustStock(${item.stock_id}, -1 * getQty(${item.stock_id}))">使用（−）</button>
+      <button class="btn btn-sm btn-outline-success" onclick="adjustStock(${item.stock_id}, getQty(${item.stock_id}))">戻し（＋）</button>
+    </div>
+  </div>
+`;
+            list.appendChild(li);
+          });
+        });
+    }
 
     function getQty(id) {
       const val = document.getElementById(`input-${id}`).value;
