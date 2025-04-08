@@ -4,6 +4,7 @@ import os
 from flask import Flask, request, jsonify, render_template
 from datetime import datetime
 from flask import send_file
+from pytz import timezone
 import csv
 import io
 import psycopg2
@@ -199,7 +200,7 @@ def download_logs():
 
     # データ取得（JOINして名前付き）
     cursor.execute("""
-        SELECT 
+        SELECT
             logs.id,
             logs.operated_at,
             logs.operation,
@@ -212,19 +213,30 @@ def download_logs():
         ORDER BY logs.operated_at DESC
     """)
     rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+# JSTタイムゾーン
+    jst = timezone('Asia/Tokyo')
 
     # CSV書き込み
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['ID', '操作日時', '操作', '段ボールID', '段ボール名', '数量変化', '操作ユーザー'])
     for row in rows:
-        writer.writerow(row)
+        operated_at_utc = row[1]
+        operated_at_jst = operated_at_utc.astimezone(jst)
+        writer.writerow([
+            row[0],
+            operated_at_jst.strftime('%Y-%m-%d %H:%M:%S'),
+            row[2], row[3], row[4], row[5], row[6]
+        ])
 
     output.seek(0)
-    filename = f"stock_operation_logs_{datetime.now().strftime('%Y%m%d')}.csv"
+    filename = f"stock_operation_logs_{datetime.now(jst).strftime('%Y%m%d')}.csv"
 
     return send_file(
-        io.BytesIO(output.getvalue().encode('utf-8-sig')),  # Excel用にBOM付き
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
         mimetype='text/csv',
         as_attachment=True,
         download_name=filename
