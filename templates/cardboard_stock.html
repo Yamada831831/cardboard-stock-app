@@ -57,13 +57,29 @@
     }
 
     function adjustStock(id, amount) {
-      if (amount === 0) return;
-      fetch(`/api/stocks/${id}/adjust`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount })
-      }).then(() => loadStocks());
-    }
+  if (amount === 0) return;
+
+  const value = { amount };
+
+  // Flask側の在庫調整
+  fetch(`/api/stocks/${id}/adjust`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(value)
+  }).then(() => loadStocks());
+
+  // n8n Webhook（操作ログ送信）
+  fetch("https://n8n-service-6hsw.onrender.com/webhook-test/operation_logs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      stock_id: id,
+      amount: amount,
+      operator: "system"  // 後でユーザー名に変えてもOK！
+    })
+  });
+}
+
   </script>
 </body>
 </html>
