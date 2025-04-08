@@ -69,7 +69,7 @@
   }).then(() => loadStocks());
 
   // n8n Webhook（操作ログ送信）
-  fetch("https://n8n-service-6hsw.onrender.com/webhook-test/operation_logs", {
+  fetch("https://n8n-service-6hsw.onrender.com/webhook/operation_logs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
