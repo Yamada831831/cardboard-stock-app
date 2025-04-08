@@ -3,6 +3,10 @@ from db_config import get_db_connection
 import os
 from flask import Flask, request, jsonify, render_template
 from datetime import datetime
+from flask import send_file
+import csv
+import io
+import psycopg2
 
 app = Flask(__name__)
 
@@ -147,11 +151,11 @@ def get_stocks():
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT s.id, c.name, c.size, s.quantity
-        FROM cardboard_stock s
-        JOIN cardboard_types c ON s.cardboard_type_id = c.id
-        ORDER BY c.name
-    """)
+    SELECT s.id, c.name, c.size, c.notes, s.quantity
+    FROM cardboard_stock s
+    JOIN cardboard_types c ON s.cardboard_type_id = c.id
+    ORDER BY c.name
+""")
     rows = cur.fetchall()
     cur.close()
     conn.close()
@@ -162,7 +166,8 @@ def get_stocks():
             "stock_id": row[0],
             "name": row[1],
             "size": row[2],
-            "quantity": row[3]
+            "notes": row[3],        # ← ここが必須！
+            "quantity": row[4]
         })
     return jsonify(result)
 
@@ -186,6 +191,44 @@ def cardboard_stock_ui():
     return render_template("cardboard_stock.html")
 
 
+@app.route('/download-logs')
+def download_logs():
+    # DB接続
+    conn = psycopg2.connect(os.environ['DATABASE_URL'])
+    cursor = conn.cursor()
+
+    # データ取得（JOINして名前付き）
+    cursor.execute("""
+        SELECT 
+            logs.id,
+            logs.operated_at,
+            logs.operation,
+            logs.cardboard_type_id,
+            types.name AS cardboard_name,
+            logs.quantity_change,
+            logs.operator
+        FROM stock_operation_logs logs
+        JOIN cardboard_types types ON logs.cardboard_type_id = types.id
+        ORDER BY logs.operated_at DESC
+    """)
+    rows = cursor.fetchall()
+
+    # CSV書き込み
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID', '操作日時', '操作', '段ボールID', '段ボール名', '数量変化', '操作ユーザー'])
+    for row in rows:
+        writer.writerow(row)
+
+    output.seek(0)
+    filename = f"stock_operation_logs_{datetime.now().strftime('%Y%m%d')}.csv"
+
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),  # Excel用にBOM付き
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=filename
+    )
 
 @app.route("/ping")
 def ping():
