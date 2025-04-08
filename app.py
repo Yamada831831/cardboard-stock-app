@@ -194,7 +194,7 @@ def cardboard_stock_ui():
 @app.route('/download-logs')
 def download_logs():
     # DB接続
-    conn = psycopg2.connect(os.environ['DATABASE_URL'])
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     # データ取得（JOINして名前付き）
