@@ -208,6 +208,7 @@ def download_logs():
             types.name AS cardboard_name,
             logs.quantity_change,
             logs.operator
+            logs.comment
         FROM stock_operation_logs logs
         JOIN cardboard_types types ON logs.cardboard_type_id = types.id
         ORDER BY logs.operated_at DESC
@@ -222,14 +223,14 @@ def download_logs():
     # CSV書き込み
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['ID', '操作日時', '操作', '段ボールID', '段ボール名', '数量変化', '操作ユーザー'])
+    writer.writerow(['ID', '操作日時', '操作', '段ボールID', '段ボール名', '数量変化', '操作ユーザー', 'コメント'])
     for row in rows:
         operated_at_utc = row[1]
         operated_at_jst = operated_at_utc.astimezone(jst)
         writer.writerow([
             row[0],
             operated_at_jst.strftime('%Y-%m-%d %H:%M:%S'),
-            row[2], row[3], row[4], row[5], row[6]
+            row[2], row[3], row[4], row[5], row[6], row[7]
         ])
 
     output.seek(0)
