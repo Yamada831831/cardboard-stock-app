@@ -207,7 +207,7 @@ def download_logs():
             logs.cardboard_type_id,
             types.name AS cardboard_name,
             logs.quantity_change,
-            logs.operator
+            logs.operator,
             logs.comment
         FROM stock_operation_logs logs
         JOIN cardboard_types types ON logs.cardboard_type_id = types.id
