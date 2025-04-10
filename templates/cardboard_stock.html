@@ -94,6 +94,7 @@ const comment = prompt("コメントを入力（空でもOK）：") || "";
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         stock_id: id,
+        cardboard_type_id: item.cardboard_type_id,
         amount: amount,
         operator: operator,
     comment: comment
