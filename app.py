@@ -207,10 +207,11 @@ def download_logs():
             logs.cardboard_type_id,
             types.name AS cardboard_name,
             logs.quantity_change,
-            logs.operator,
+            COALESCE(aliases.display_name, logs.operator) AS operator_name,
             logs.comment
         FROM stock_operation_logs logs
         JOIN cardboard_types types ON logs.cardboard_type_id = types.id
+        LEFT JOIN operator_aliases aliases ON logs.operator = aliases.operator_id
         ORDER BY logs.operated_at DESC
     """)
     rows = cursor.fetchall()
