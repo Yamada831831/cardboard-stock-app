@@ -173,19 +173,42 @@ def get_stocks():
     return jsonify(result)
 
 # 任意の数量で在庫更新（増加 or 減少）
-@app.route("/api/stocks/<int:stock_id>/adjust", methods=["POST"])
+@app.route('/api/stocks/<int:stock_id>/adjust', methods=["POST"])
 def adjust_stock(stock_id):
     data = request.json
-    amount = int(data.get("amount", 0))  # 例: -5 や +3
+    amount = int(data.get("amount", 0))
+    operator = data.get("operator", "unknown")
+    comment = data.get("comment", "")
 
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("UPDATE cardboard_stock SET quantity = GREATEST(quantity + %s, 0) WHERE id = %s", (amount, stock_id))
+
+    # ✅ stock_id から正しい cardboard_type_id を取得
+    cur.execute("SELECT cardboard_type_id FROM cardboard_stock WHERE id = %s", (stock_id,))
+    row = cur.fetchone()
+    if not row:
+        return jsonify({"error": "在庫が見つかりません"}), 404
+    cardboard_type_id = row[0]
+
+    # ✅ 在庫を更新（マイナス在庫にならないように GREATEST）
+    cur.execute("""
+        UPDATE cardboard_stock
+        SET quantity = GREATEST(quantity + %s, 0)
+        WHERE id = %s
+    """, (amount, stock_id))
+
+    # ✅ 操作ログを登録
+    operation = "使用" if amount < 0 else "戻し"
+    cur.execute("""
+        INSERT INTO stock_operation_logs (operation, cardboard_type_id, quantity_change, operator, comment)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (operation, cardboard_type_id, amount, operator, comment))
+
     conn.commit()
     cur.close()
     conn.close()
 
-    return jsonify({"message": f"数量調整 {amount:+d}"})
+    return jsonify({ "message": f"数量調整 {amount:+d}" })
 
 @app.route("/cardboard-stock-ui")
 def cardboard_stock_ui():
