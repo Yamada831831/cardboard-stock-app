@@ -76,13 +76,16 @@
 const action = amount < 0 ? "使用" : "戻し";
 if (!confirm(`この段ボールを${action}しますか？`)) return;
 
+const comment = prompt("コメントを入力（空でもOK）：") || "";
+
+
     const operator = getOperator();
 
     // Flask側の在庫調整
     fetch(`/api/stocks/${id}/adjust`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount, operator })
+      body: JSON.stringify({ amount, operator, comment })
     }).then(() => loadStocks());
 
     // n8n Webhook（操作ログ送信）
@@ -92,7 +95,8 @@ if (!confirm(`この段ボールを${action}しますか？`)) return;
       body: JSON.stringify({
         stock_id: id,
         amount: amount,
-        operator: operator
+        operator: operator,
+    comment: comment
       })
     });
   }
