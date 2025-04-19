@@ -8,8 +8,15 @@ from pytz import timezone
 import csv
 import io
 import psycopg2
+from dotenv import load_dotenv
+import requests
+
 
 app = Flask(__name__)
+
+load_dotenv()
+LINE_TOKEN = os.getenv("LINE_TOKEN")
+
 
 # 登録画面を返すルート
 @app.route("/cardboard-types-ui")
@@ -294,6 +301,69 @@ def add_stock():
     cur.close()
     conn.close()
     return jsonify({"message": "Stock added"}), 201
+
+def send_line_notify(message: str):
+    headers = {
+        "Authorization": f"Bearer {LINE_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "messages": [
+            {
+                "type": "text",
+                "text": message
+            }
+        ]
+    }
+    response = requests.post("https://api.line.me/v2/bot/message/push", headers=headers, json=payload)
+    print("LINE送信ステータス:", response.status_code)
+
+@app.route("/send-inventory-report", methods=["GET"])
+def send_inventory_report():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # 在庫少数
+    cur.execute("""
+        SELECT types.name, stock.quantity
+        FROM cardboard_stock stock
+        JOIN cardboard_types types ON stock.cardboard_type_id = types.id
+        WHERE stock.quantity < 300
+    """)
+    low_stock_rows = cur.fetchall()
+
+    low_msg = ""
+    if low_stock_rows:
+        low_msg = "⚠️ 在庫が少ない段ボールがあります\n"
+        for name, qty in low_stock_rows:
+            low_msg += f"◻️ {name}：残り {qty} 個\n"
+
+    # 未入荷予約
+    cur.execute("""
+        SELECT types.name, arrivals.quantity, arrivals.scheduled_date
+        FROM cardboard_arrivals arrivals
+        JOIN cardboard_types types ON arrivals.cardboard_type_id = types.id
+        WHERE arrivals.is_arrived = FALSE
+        ORDER BY arrivals.scheduled_date
+    """)
+    unarrived_rows = cur.fetchall()
+
+    arrival_msg = ""
+    if unarrived_rows:
+        arrival_msg = "📥【未入荷の入荷予約】\n"
+        for name, qty, scheduled in unarrived_rows:
+            formatted = scheduled.strftime("%m/%d(%a)")
+            arrival_msg += f"◻️ {name}：{qty}枚（{formatted}）\n"
+
+    cur.close()
+    conn.close()
+
+    combined_msg = (low_msg + "\n" + arrival_msg).strip()
+    if combined_msg:
+        send_line_notify(combined_msg)
+
+    return jsonify({"message": "通知完了", "content": combined_msg})
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
