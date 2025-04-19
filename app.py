@@ -10,6 +10,7 @@ import io
 import psycopg2
 from dotenv import load_dotenv
 import requests
+import json
 
 
 app = Flask(__name__)
@@ -302,17 +303,41 @@ def add_stock():
     conn.close()
     return jsonify({"message": "Stock added"}), 201
 
-def send_line_notify(message: str):
-    token = os.getenv("LINE_NOTIFY_TOKEN")
+
+def send_line_notify(message: str) -> dict:
+    token = os.getenv("LINE_TOKEN")  # ← Messaging APIのチャネルアクセストークン
+    if not token:
+        return {"status": "error", "message": "LINE_TOKEN が .env に設定されていません"}
+
+    url = "https://api.line.me/v2/bot/message/broadcast"
     headers = {
-        "Authorization": f"Bearer {token}"
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
     }
+
     payload = {
-        "message": message
+        "messages": [
+            {
+                "type": "text",
+                "text": message
+            }
+        ]
     }
-    response = requests.post("https://notify-api.line.me/api/notify", headers=headers, data=payload)
-    print("LINE Notifyステータス:", response.status_code)
-    print("レスポンス:", response.text)
+
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        response.raise_for_status()
+        return {
+            "status": "ok",
+            "code": response.status_code,
+            "response": response.text
+        }
+    except requests.exceptions.RequestException as e:
+        return {
+            "status": "error",
+            "message": str(e),
+            "response": response.text if 'response' in locals() else None
+        }
 
 
 
@@ -368,6 +393,7 @@ def send_inventory_report():
 
     if combined_msg:
         send_line_notify(combined_msg)
+        print("LINE送信結果:", result)
 
     return jsonify({
         "status": "ok",
