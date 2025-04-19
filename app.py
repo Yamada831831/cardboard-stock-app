@@ -352,7 +352,7 @@ cur.execute("""
       )
     ORDER BY a.scheduled_date
 """)
-    unarrived_rows = cur.fetchall()
+unarrived_rows = cur.fetchall()
 
     arrival_msg = ""
     if unarrived_rows:
