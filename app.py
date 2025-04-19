@@ -321,7 +321,7 @@ def send_inventory_report():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # --- 在庫少ない段ボール（stock.notes に "シーズンオフ" を含まない） ---
+    # --- 在庫少ない段ボール ---
     cur.execute("""
         SELECT c.name, s.quantity
         FROM cardboard_stock s
@@ -330,7 +330,7 @@ def send_inventory_report():
           AND (
             c.notes IS NULL
             OR TRIM(REPLACE(c.notes, '　', '')) NOT ILIKE '%シーズンオフ%'
-         )
+          )
     """)
     low_stock_rows = cur.fetchall()
 
@@ -340,31 +340,30 @@ def send_inventory_report():
         for name, qty in low_stock_rows:
             low_msg += f"◻️ {name}：残り {qty} 個\n"
 
-    # --- 未入荷予約（types.notes に "シーズンオフ" を含まない） ---
-cur.execute("""
-    SELECT c.name, a.quantity, a.scheduled_date
-    FROM cardboard_arrivals a
-    JOIN cardboard_types c ON a.cardboard_type_id = c.id
-    WHERE a.is_arrived = FALSE
-      AND (
-        c.notes IS NULL
-        OR TRIM(REPLACE(c.notes, '　', '')) NOT ILIKE '%シーズンオフ%'
-      )
-    ORDER BY a.scheduled_date
-""")
-unarrived_rows = cur.fetchall()
+    # --- 未入荷予約 ---
+    cur.execute("""
+        SELECT c.name, a.quantity, a.scheduled_date
+        FROM cardboard_arrivals a
+        JOIN cardboard_types c ON a.cardboard_type_id = c.id
+        WHERE a.is_arrived = FALSE
+          AND (
+            c.notes IS NULL
+            OR TRIM(REPLACE(c.notes, '　', '')) NOT ILIKE '%シーズンオフ%'
+          )
+        ORDER BY a.scheduled_date
+    """)  # ← ここがズレてるとエラーになる！
+    unarrived_rows = cur.fetchall()
 
     arrival_msg = ""
     if unarrived_rows:
         arrival_msg = "📥【未入荷の入荷予約】\n"
-        for name, qty, scheduled, _ in unarrived_rows:
+        for name, qty, scheduled in unarrived_rows:
             day = scheduled.strftime("%m/%d(%a)")
             arrival_msg += f"◻️ {name}：{qty}枚（{day}）\n"
 
     cur.close()
     conn.close()
 
-    # --- メッセージ結合＆送信 ---
     combined_msg = (low_msg + "\n" + arrival_msg).strip()
 
     if combined_msg:
