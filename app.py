@@ -381,7 +381,7 @@ def send_inventory_report():
 
     arrival_msg = ""
     if unarrived_rows:
-        arrival_msg = "📥【入荷予約】\n"
+        arrival_msg = "📥【入荷予定】\n"
         for name, qty, scheduled in unarrived_rows:
             day = scheduled.strftime("%m/%d(%a)")
             arrival_msg += f"○ {name}：{qty}枚（{day}）\n"
