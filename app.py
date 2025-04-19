@@ -303,32 +303,34 @@ def add_stock():
     return jsonify({"message": "Stock added"}), 201
 
 def send_line_notify(message: str):
+    token = os.getenv("LINE_NOTIFY_TOKEN")
     headers = {
-        "Authorization": f"Bearer {LINE_TOKEN}",
-        "Content-Type": "application/json"
+        "Authorization": f"Bearer {token}"
     }
     payload = {
-        "messages": [
-            {
-                "type": "text",
-                "text": message
-            }
-        ]
+        "message": message
     }
-    response = requests.post("https://api.line.me/v2/bot/message/push", headers=headers, json=payload)
-    print("LINE送信ステータス:", response.status_code)
+    response = requests.post("https://notify-api.line.me/api/notify", headers=headers, data=payload)
+    print("LINE Notifyステータス:", response.status_code)
+    print("レスポンス:", response.text)
+
+
 
 @app.route("/send-inventory-report", methods=["GET"])
 def send_inventory_report():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # 在庫少数
+    # --- 在庫少ない段ボール（stock.notes に "シーズンオフ" を含まない） ---
     cur.execute("""
         SELECT types.name, stock.quantity
         FROM cardboard_stock stock
         JOIN cardboard_types types ON stock.cardboard_type_id = types.id
         WHERE stock.quantity < 300
+          AND (
+            stock.notes IS NULL
+            OR TRIM(REPLACE(stock.notes, '　', '')) NOT ILIKE '%シーズンオフ%'
+          )
     """)
     low_stock_rows = cur.fetchall()
 
@@ -338,12 +340,16 @@ def send_inventory_report():
         for name, qty in low_stock_rows:
             low_msg += f"◻️ {name}：残り {qty} 個\n"
 
-    # 未入荷予約
+    # --- 未入荷予約（types.notes に "シーズンオフ" を含まない） ---
     cur.execute("""
-        SELECT types.name, arrivals.quantity, arrivals.scheduled_date
+        SELECT types.name, arrivals.quantity, arrivals.scheduled_date, types.notes
         FROM cardboard_arrivals arrivals
         JOIN cardboard_types types ON arrivals.cardboard_type_id = types.id
         WHERE arrivals.is_arrived = FALSE
+          AND (
+            types.notes IS NULL
+            OR TRIM(REPLACE(types.notes, '　', '')) NOT ILIKE '%シーズンオフ%'
+          )
         ORDER BY arrivals.scheduled_date
     """)
     unarrived_rows = cur.fetchall()
@@ -351,18 +357,25 @@ def send_inventory_report():
     arrival_msg = ""
     if unarrived_rows:
         arrival_msg = "📥【未入荷の入荷予約】\n"
-        for name, qty, scheduled in unarrived_rows:
-            formatted = scheduled.strftime("%m/%d(%a)")
-            arrival_msg += f"◻️ {name}：{qty}枚（{formatted}）\n"
+        for name, qty, scheduled, _ in unarrived_rows:
+            day = scheduled.strftime("%m/%d(%a)")
+            arrival_msg += f"◻️ {name}：{qty}枚（{day}）\n"
 
     cur.close()
     conn.close()
 
+    # --- メッセージ結合＆送信 ---
     combined_msg = (low_msg + "\n" + arrival_msg).strip()
+
     if combined_msg:
         send_line_notify(combined_msg)
 
-    return jsonify({"message": "通知完了", "content": combined_msg})
+    return jsonify({
+        "status": "ok",
+        "sent": bool(combined_msg),
+        "message": combined_msg
+    })
+
 
 
 if __name__ == "__main__":
