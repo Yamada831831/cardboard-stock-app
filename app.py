@@ -323,14 +323,14 @@ def send_inventory_report():
 
     # --- 在庫少ない段ボール（stock.notes に "シーズンオフ" を含まない） ---
     cur.execute("""
-        SELECT types.name, stock.quantity
-        FROM cardboard_stock stock
-        JOIN cardboard_types types ON stock.cardboard_type_id = types.id
-        WHERE stock.quantity < 300
+        SELECT c.name, s.quantity
+        FROM cardboard_stock s
+        JOIN cardboard_types c ON s.cardboard_type_id = c.id
+        WHERE s.quantity < 300
           AND (
-            stock.notes IS NULL
-            OR TRIM(REPLACE(stock.notes, '　', '')) NOT ILIKE '%シーズンオフ%'
-          )
+            c.notes IS NULL
+            OR TRIM(REPLACE(c.notes, '　', '')) NOT ILIKE '%シーズンオフ%'
+         )
     """)
     low_stock_rows = cur.fetchall()
 
@@ -342,15 +342,15 @@ def send_inventory_report():
 
     # --- 未入荷予約（types.notes に "シーズンオフ" を含まない） ---
     cur.execute("""
-        SELECT types.name, arrivals.quantity, arrivals.scheduled_date, types.notes
-        FROM cardboard_arrivals arrivals
-        JOIN cardboard_types types ON arrivals.cardboard_type_id = types.id
-        WHERE arrivals.is_arrived = FALSE
+        SELECT c.name, a.quantity, a.scheduled_date
+        FROM cardboard arrivals a
+        JOIN cardboard_types c ON a.cardboard_type_id = c.id
+        WHERE a.is_arrived = FALSE
           AND (
-            types.notes IS NULL
-            OR TRIM(REPLACE(types.notes, '　', '')) NOT ILIKE '%シーズンオフ%'
-          )
-        ORDER BY arrivals.scheduled_date
+            c.notes IS NULL
+            OR TRIM(REPLACE(c.notes, '　', '')) NOT ILIKE '%シーズンオフ%'
+         )
+        ORDER BY a.scheduled_date
     """)
     unarrived_rows = cur.fetchall()
 
