@@ -341,17 +341,17 @@ def send_inventory_report():
             low_msg += f"◻️ {name}：残り {qty} 個\n"
 
     # --- 未入荷予約（types.notes に "シーズンオフ" を含まない） ---
-    cur.execute("""
-        SELECT c.name, a.quantity, a.scheduled_date
-        FROM cardboard arrivals a
-        JOIN cardboard_types c ON a.cardboard_type_id = c.id
-        WHERE a.is_arrived = FALSE
-          AND (
-            c.notes IS NULL
-            OR TRIM(REPLACE(c.notes, '　', '')) NOT ILIKE '%シーズンオフ%'
-         )
-        ORDER BY a.scheduled_date
-    """)
+cur.execute("""
+    SELECT c.name, a.quantity, a.scheduled_date
+    FROM cardboard_arrivals a
+    JOIN cardboard_types c ON a.cardboard_type_id = c.id
+    WHERE a.is_arrived = FALSE
+      AND (
+        c.notes IS NULL
+        OR TRIM(REPLACE(c.notes, '　', '')) NOT ILIKE '%シーズンオフ%'
+      )
+    ORDER BY a.scheduled_date
+""")
     unarrived_rows = cur.fetchall()
 
     arrival_msg = ""
