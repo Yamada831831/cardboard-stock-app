@@ -363,7 +363,7 @@ def send_inventory_report():
     if low_stock_rows:
         low_msg = "⚠️ 在庫が少ない段ボールがあります\n"
         for name, qty in low_stock_rows:
-            low_msg += f"◻️ {name}：残り {qty} 個\n"
+            low_msg += f"○ {name}：残り {qty} 個\n"
 
     # --- 未入荷予約 ---
     cur.execute("""
@@ -381,10 +381,10 @@ def send_inventory_report():
 
     arrival_msg = ""
     if unarrived_rows:
-        arrival_msg = "📥【未入荷の入荷予約】\n"
+        arrival_msg = "📥【入荷予約】\n"
         for name, qty, scheduled in unarrived_rows:
             day = scheduled.strftime("%m/%d(%a)")
-            arrival_msg += f"◻️ {name}：{qty}枚（{day}）\n"
+            arrival_msg += f"○ {name}：{qty}枚（{day}）\n"
 
     cur.close()
     conn.close()
@@ -392,8 +392,11 @@ def send_inventory_report():
     combined_msg = (low_msg + "\n" + arrival_msg).strip()
 
     if combined_msg:
-        send_line_notify(combined_msg)
+        result = send_line_notify(combined_msg)
         print("LINE送信結果:", result)
+    else:
+        print("送信なし：combined_msg が空やったで")
+
 
     return jsonify({
         "status": "ok",
